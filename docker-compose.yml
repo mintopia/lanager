@@ -1,0 +1,50 @@
+version: '3'
+services:
+  debug-cli: &debug-cli
+    build: ./docker/debug-cli
+    volumes:
+      - .:/app
+    profiles:
+      - debug-cli
+    depends_on:
+      - database
+  artisan:
+    <<: *debug-cli
+    entrypoint: php artisan
+    profiles:
+      - artisan
+    depends_on:
+      - database
+  app:
+    build: ./docker/debug-cli
+    volumes:
+      - .:/app
+    entrypoint: php artisan serve --host=0.0.0.0
+    ports:
+      - 8080:8000
+    depends_on:
+      - database
+  scheduler:
+    build: ./docker/debug-cli
+    volumes:
+        - .:/app
+    entrypoint: php scheduler.php
+    depends_on:
+      - database
+  composer:
+    <<: *debug-cli
+    entrypoint: composer
+    profiles:
+      - composer
+  database:
+    image: mysql:5.7
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=lanager
+      - MYSQL_USER=lanager
+      - MYSQL_PASSWORD=lanager
+    volumes:
+      - ./storage/mysql:/var/lib/mysql
+
+

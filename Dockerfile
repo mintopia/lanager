@@ -1,28 +1,36 @@
-FROM composer:2 as composer2
+FROM 1and1internet/php-build-environment:7.2 AS build
+LABEL org.opencontainers.image.authors="Jessica Smith <jess@mintopia.net>"
 
-# Copy in project code
-COPY . /app
+WORKDIR /app/
+USER 1000
+ENV HOME /tmp
 
-# Install PHP dependencies
+COPY --chown=1000:1000 . /app/
+COPY --chown=1000:1000 .env /app/.env
+
 RUN composer install \
-  --optimize-autoloader \
-  --no-interaction \
-  --no-progress \
-  --no-dev
+    --no-progress \
+    --optimize-autoloader \
+    --prefer-dist
 
-FROM trafex/alpine-nginx-php7:1.10.0
+FROM mintopia/nginx-fpm-php:7.2
+LABEL org.opencontainers.image.authors="Jessica Smith <jess@mintopia.net>"
 
 USER root
 
-# Install binary dependencies
-RUN apk --no-cache add php7-xmlwriter php7-zip php7-pdo php7-pdo_mysql php7-tokenizer php7-simplexml php7-bcmath
+RUN apk update \
+    && apk --no-cache add \
+        ${PHPIZE_DEPS} \
+    && rm -rf /tmp/pear \
+    && docker-php-ext-install \
+        bcmath \
+        pdo_mysql \
+    && apk del --no-cache ${PHPIZE_DEPS} \
+    && rm -vrf /tmp/pear /var/cache/apk/* \
+    && mkdir -p /app /tmp \
+    && chown -R 1000:1000 /app /tmp
 
-# Copy in project code and dependencies from composer2 build stage
-COPY --chown=nginx --from=composer2 /app /var/www/lanager
-
-RUN chmod -R 777 /var/www/lanager/storage
-
-WORKDIR /var/www/lanager
-
-# Change to non-privileged user
-USER nobody
+WORKDIR /var/www/
+USER 1000
+ENV HOME /tmp
+COPY --from=build --chown=1000:1000 /app/ /var/www/
